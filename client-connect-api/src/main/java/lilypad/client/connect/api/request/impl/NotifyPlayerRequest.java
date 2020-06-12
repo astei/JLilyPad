@@ -3,6 +3,8 @@ package lilypad.client.connect.api.request.impl;
 import lilypad.client.connect.api.request.Request;
 import lilypad.client.connect.api.result.impl.NotifyPlayerResult;
 
+import java.util.UUID;
+
 /**
  * Request to notify the network that a player has been added
  * or removed from our proxy.
@@ -11,15 +13,17 @@ public class NotifyPlayerRequest implements Request<NotifyPlayerResult> {
 
 	private boolean addOrRemove;
 	private String player;
+	private UUID uuid;
 	
 	/**
-	 * 
 	 * @param addOrRemove true if adding, false if removing
 	 * @param player in question
+	 * @param uuid
 	 */
-	public NotifyPlayerRequest(boolean addOrRemove, String player) {
+	public NotifyPlayerRequest(boolean addOrRemove, String player, UUID uuid) {
 		this.addOrRemove = addOrRemove;
 		this.player = player;
+		this.uuid = uuid;
 	}
 
 	/**
@@ -54,4 +58,7 @@ public class NotifyPlayerRequest implements Request<NotifyPlayerResult> {
 		return this.player;
 	}
 
+	public UUID getUuid() {
+		return uuid;
+	}
 }

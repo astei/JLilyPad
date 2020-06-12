@@ -11,6 +11,8 @@ public class NotifyPlayerRequestEncoder implements RequestEncoder<NotifyPlayerRe
 	public void encode(NotifyPlayerRequest request, ByteBuf buffer) {
 		buffer.writeBoolean(request.isAdding());
 		BufferUtils.writeString(buffer, request.getPlayer());
+		buffer.writeLong(request.getUuid().getMostSignificantBits());
+		buffer.writeLong(request.getUuid().getLeastSignificantBits());
 	}
 
 	public int getId() {
