@@ -1,6 +1,11 @@
-JLilyPad
-=============
+Lotus changes to JLilyPad
+=========================
 
-An implementation of LilyPad in the popular programming language Java.
+Lotus is an implementation of the LilyPad Connect protocol
+built on [Velocity](https://www.velocitypowered.com).
 
-More information can be found at http://www.lilypadmc.org :)
+Lotus uses code from JLilyPad, so this branch contains all
+changes I made to JLilyPad.
+
+Lotus is currently under development and is not currently
+planned to be open-sourced.
