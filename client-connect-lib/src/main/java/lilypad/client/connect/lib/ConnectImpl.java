@@ -105,7 +105,7 @@ public class ConnectImpl implements Connect {
 		this.eventGroup = Epoll.isAvailable() ? new EpollEventLoopGroup(0, nettyThreadFactory) : new NioEventLoopGroup(0, nettyThreadFactory);
 
 		Bootstrap bootstrap = new Bootstrap().group(this.eventGroup)
-				.channel(Epoll.isAvailable() ? NioSocketChannel.class : EpollSocketChannel.class)
+				.channel(Epoll.isAvailable() ? EpollSocketChannel.class : NioSocketChannel.class)
 				.handler(new ChannelInitializer<SocketChannel>() {
 					public void initChannel(SocketChannel channel) throws Exception {
 						channel.pipeline().addLast(new ReadTimeoutHandler(10));
