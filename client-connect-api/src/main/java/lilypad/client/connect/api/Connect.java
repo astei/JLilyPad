@@ -35,6 +35,22 @@ public interface Connect {
 	public <T extends Result> FutureResult<T> request(Request<T> request) throws RequestException;
 
 	/**
+	 * Pass a request to be completed and given a result by the
+	 * network. The request won't be sent until the connect instance
+	 * was flushed.
+	 *
+	 * @param request
+	 * @return the FutureResult to show that the request will be completed in the future
+	 * @throws RequestException if the request failed
+	 */
+	public <T extends Result> FutureResult<T> requestLater(Request<T> request) throws RequestException;
+
+	/**
+	 * Flushes any queued packets.
+	 */
+	public void flush();
+
+	/**
 	 * Register event listener methods dictated by the EventListener
 	 * annotation.
 	 * 

@@ -5,6 +5,10 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -25,6 +29,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
+import io.netty.util.concurrent.FastThreadLocalThread;
 import lilypad.client.connect.api.Connect;
 import lilypad.client.connect.api.ConnectSettings;
 import lilypad.client.connect.api.MessageEvent;
@@ -54,7 +59,7 @@ import lilypad.packet.connect.impl.RequestPacket;
 @SuppressWarnings("deprecation")
 public class ConnectImpl implements Connect {
 
-	private NioEventLoopGroup eventGroup;
+	private EventLoopGroup eventGroup;
 	private Channel channel;
 
 	private ConnectSettings settings;
@@ -89,17 +94,18 @@ public class ConnectImpl implements Connect {
 
 		final ThreadGroup eventThreadGroup = Thread.currentThread().getThreadGroup();
 		final AtomicInteger eventThreadId = new AtomicInteger();
-		this.eventGroup = new NioEventLoopGroup(0, new ThreadFactory() {
+		final ThreadFactory nettyThreadFactory = new ThreadFactory() {
 			public Thread newThread(Runnable runnable) {
-				Thread thread = new Thread(eventThreadGroup, runnable, "Netty Connect IO #" + eventThreadId.getAndIncrement());
+				FastThreadLocalThread thread = new FastThreadLocalThread(eventThreadGroup, runnable, "Netty Connect IO #" + eventThreadId.getAndIncrement());
 				thread.setDaemon(false);
 				thread.setPriority(Thread.NORM_PRIORITY);
 				return thread;
 			}
-		});
+		};
+		this.eventGroup = Epoll.isAvailable() ? new EpollEventLoopGroup(0, nettyThreadFactory) : new NioEventLoopGroup(0, nettyThreadFactory);
 
 		Bootstrap bootstrap = new Bootstrap().group(this.eventGroup)
-				.channel(NioSocketChannel.class)
+				.channel(Epoll.isAvailable() ? NioSocketChannel.class : EpollSocketChannel.class)
 				.handler(new ChannelInitializer<SocketChannel>() {
 					public void initChannel(SocketChannel channel) throws Exception {
 						channel.pipeline().addLast(new ReadTimeoutHandler(10));
@@ -147,8 +153,14 @@ public class ConnectImpl implements Connect {
 		this.closed = true;
 	}
 
-	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public <T extends Result> FutureResult<T> request(Request<T> request) throws RequestException {
+		FutureResult<T> result = this.requestLater(request);
+		this.flush();
+		return result;
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public <T extends Result> FutureResult<T> requestLater(Request<T> request) throws RequestException {
 		if(this.isClosed()) {
 			throw new RequestException("Not open");
 		}
@@ -163,9 +175,13 @@ public class ConnectImpl implements Connect {
 		}
 		ByteBuf payload = this.channel.alloc().buffer();
 		requestEncoder.encode(request, payload);
-		this.channel.writeAndFlush(new RequestPacket(futureId, requestEncoder.getId(), payload));
+		this.channel.write(new RequestPacket(futureId, requestEncoder.getId(), payload), channel.voidPromise());
 		this.pendingFutures.put(futureId, futureResult);
 		return futureResult;
+	}
+
+	public void flush() {
+		this.channel.flush();
 	}
 
 	public void registerMessageEventListener(MessageEventListener messageEventListener) {
