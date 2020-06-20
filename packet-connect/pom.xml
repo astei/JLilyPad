@@ -1,9 +1,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>lilypad.packet</groupId>
-	<artifactId>connect</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<parent>
+		<groupId>me.steinborn.lotus</groupId>
+		<artifactId>lotus-jlilypad-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>packet-connect</artifactId>
 	<packaging>jar</packaging>
 
 	<name>Packet-Connect</name>
@@ -23,8 +27,8 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>lilypad.packet</groupId>
-			<artifactId>common</artifactId>
+			<groupId>me.steinborn.lotus</groupId>
+			<artifactId>packet-common</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
