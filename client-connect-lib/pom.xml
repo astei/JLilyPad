@@ -50,32 +50,23 @@
 				</configuration>
 			</plugin>
 			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<version>2.6</version>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.2.1</version>
 				<executions>
 					<execution>
-						<id>make-assembly</id>
-						<phase>package</phase>
 						<goals>
-							<goal>single</goal>
+							<goal>shade</goal>
 						</goals>
-						<configuration>
-							<source>1.6</source>
-							<target>1.6</target>
-							<appendAssemblyId>false</appendAssemblyId>
-							<descriptorRefs>
-								<descriptorRef>jar-with-dependencies</descriptorRef>
-							</descriptorRefs>
-							<archive>
-								<addMavenDescriptor>false</addMavenDescriptor>
-								<manifestEntries>
-									<Implementation-Title>${name}</Implementation-Title>
-									<Implementation-Version>${build.number}</Implementation-Version>
-								</manifestEntries>
-							</archive>
-						</configuration>
 					</execution>
 				</executions>
+				<configuration>
+					<artifactSet>
+						<excludes>
+							<exclude>io.netty:*</exclude>
+						</excludes>
+					</artifactSet>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
