@@ -12,5 +12,14 @@ public class RequestException extends Exception {
 	public RequestException(String reason) {
 		super(reason);
 	}
+
+	/**
+	 * Showing a request failed
+	 *
+	 * @param reason of the exception
+	 */
+	public RequestException(Throwable reason) {
+		super(reason);
+	}
 	
 }

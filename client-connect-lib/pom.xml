@@ -35,6 +35,11 @@
 			<artifactId>packet-connect</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>25.1-jre</version>
+		</dependency>
 	</dependencies>
 	
 	<build>
@@ -62,9 +67,9 @@
 				</executions>
 				<configuration>
 					<artifactSet>
-						<excludes>
-							<exclude>io.netty:*</exclude>
-						</excludes>
+						<includes>
+							<includes>me.steinborn.lotus:*</includes>
+						</includes>
 					</artifactSet>
 				</configuration>
 			</plugin>

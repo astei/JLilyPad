@@ -2,10 +2,7 @@ package lilypad.client.connect.lib;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollSocketChannel;
@@ -25,6 +22,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
@@ -65,18 +63,18 @@ public class ConnectImpl implements Connect {
 	private ConnectSettings settings;
 	private String inboundIp;
 
-	private Set<MessageEventListener> messageEventListeners = new HashSet<MessageEventListener>();
-	private ReentrantLock messageEventListenersLock = new ReentrantLock();
-	private Set<RedirectEventListener> redirectEventListeners = new HashSet<RedirectEventListener>();
-	private ReentrantLock redirectEventListenersLock = new ReentrantLock();
-	private Set<ServerEventListener> serverEventListeners = new HashSet<ServerEventListener>();
-	private ReentrantLock serverEventListenersLock = new ReentrantLock();
-	private Map<Class<? extends Event>, Map<Object, Method[]>> eventListeners = new HashMap<Class<? extends Event>, Map<Object, Method[]>>();
-	private ReentrantLock eventListenersLock = new ReentrantLock();
-	
+	private final Set<MessageEventListener> messageEventListeners = new HashSet<MessageEventListener>();
+	private final ReentrantLock messageEventListenersLock = new ReentrantLock();
+	private final Set<RedirectEventListener> redirectEventListeners = new HashSet<RedirectEventListener>();
+	private final ReentrantLock redirectEventListenersLock = new ReentrantLock();
+	private final Set<ServerEventListener> serverEventListeners = new HashSet<ServerEventListener>();
+	private final ReentrantLock serverEventListenersLock = new ReentrantLock();
+	private final Map<Class<? extends Event>, Map<Object, Method[]>> eventListeners = new HashMap<Class<? extends Event>, Map<Object, Method[]>>();
+	private final ReentrantLock eventListenersLock = new ReentrantLock();
+
 	@SuppressWarnings("rawtypes")
-	private Map<Integer, FutureResultImpl> pendingFutures = new HashMap<Integer, FutureResultImpl>();
-	private AtomicInteger currentFutureId = new AtomicInteger();
+	private final Map<Integer, FutureResultImpl> pendingFutures = new ConcurrentHashMap<Integer, FutureResultImpl>();
+	private final AtomicInteger currentFutureId = new AtomicInteger();
 
 	private boolean closed;
 
@@ -97,7 +95,7 @@ public class ConnectImpl implements Connect {
 		final ThreadFactory nettyThreadFactory = new ThreadFactory() {
 			public Thread newThread(Runnable runnable) {
 				FastThreadLocalThread thread = new FastThreadLocalThread(eventThreadGroup, runnable, "Netty Connect IO #" + eventThreadId.getAndIncrement());
-				thread.setDaemon(false);
+				thread.setDaemon(true);
 				thread.setPriority(Thread.NORM_PRIORITY);
 				return thread;
 			}
@@ -128,12 +126,11 @@ public class ConnectImpl implements Connect {
 	@SuppressWarnings("rawtypes")
 	public void disconnect() {
 		try {
-			if(this.pendingFutures != null) {
-				for(FutureResultImpl pendingFuture : this.pendingFutures.values()) {
-					pendingFuture.cancel();
-				}
-				this.pendingFutures.clear();
+			for(FutureResultImpl pendingFuture : this.pendingFutures.values()) {
+				pendingFuture.cancel();
 			}
+			this.pendingFutures.clear();
+
 			if(this.channel != null && this.channel.isOpen()) {
 				this.channel.close().sync();
 			}
@@ -167,7 +164,6 @@ public class ConnectImpl implements Connect {
 		if(!this.isConnected()) {
 			throw new RequestException("Not connected");
 		}
-		int futureId = this.currentFutureId.incrementAndGet();
 		FutureResultImpl<T> futureResult = new FutureResultImpl<T>(request.getResult());
 		RequestEncoder requestEncoder = ConnectRequestEncoderRegistry.instance.getByRequest(request.getClass());
 		if(requestEncoder == null) {
@@ -175,8 +171,18 @@ public class ConnectImpl implements Connect {
 		}
 		ByteBuf payload = this.channel.alloc().buffer();
 		requestEncoder.encode(request, payload);
-		this.channel.write(new RequestPacket(futureId, requestEncoder.getId(), payload), channel.voidPromise());
+		final int futureId = this.currentFutureId.incrementAndGet();
 		this.pendingFutures.put(futureId, futureResult);
+		this.channel.write(new RequestPacket(futureId, requestEncoder.getId(), payload))
+				.addListener(new ChannelFutureListener() {
+					@Override
+					public void operationComplete(ChannelFuture future) {
+						if (!future.isSuccess()) {
+							pendingFutures.remove(futureId).notifyFailure(future.cause());
+							disconnect();
+						}
+					}
+				});
 		return futureResult;
 	}
 
@@ -366,9 +372,16 @@ public class ConnectImpl implements Connect {
 		if(resultDecoder == null) {
 			return; // encoder without decoder? fail safe anyway
 		}
-		futureResult.notifyResult((T) resultDecoder.decode(statusCode, buffer));
-		if(buffer != null) {
-			buffer.release();
+
+		try {
+			T decoded = (T) resultDecoder.decode(statusCode, buffer);
+			futureResult.notifyResult(decoded);
+		} catch (Exception e) {
+			futureResult.notifyFailure(e);
+		} finally {
+			if (buffer != null) {
+				buffer.release();
+			}
 		}
 	}
 
