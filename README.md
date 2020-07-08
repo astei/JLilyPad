@@ -6,6 +6,3 @@ built on [Velocity](https://www.velocitypowered.com).
 
 Lotus uses code from JLilyPad, so this branch contains all
 changes I made to JLilyPad.
-
-Lotus is currently under development and is not currently
-planned to be open-sourced.
